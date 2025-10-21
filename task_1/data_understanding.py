@@ -3,7 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
-from plotting_functions import *
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from utils.plotting import *
 
 warnings.filterwarnings('ignore')
 sns.set(style="whitegrid")
@@ -32,62 +36,32 @@ tracks.head()
 
 ## Artists
 # Check how many NaNs are present and plot the number of NaN per each column
-nan_count_artists = artists.isnull().sum()
-nan_pct_artists = (nan_count_artists / len(artists)) * 100
-non_nan_artists = (artists.notnull().sum() / len(artists)) * 100
-
-plot_data = pd.DataFrame({
-    'NaN Values %': nan_pct_artists,
-    'NaN Values': nan_count_artists,
-    'Non-NaN Values %': non_nan_artists
-})
-
-plot_data = plot_data.sort_values(by=['NaN Values'], ascending=False)
-plot_data
-
-plot_data.drop("NaN Values", axis=1, inplace=True)
 # from the distribution we can see that no active end date is present, and about half active start
-# Region province and country are
+plot_nans_stacked(artists, 'NaN Percentage Per Column (Artists Dataset)')
 
-# stacked bar to see the proportion of NaN vs non NaN in each column for 
-ax = plot_data.plot(kind='bar', stacked=True, 
-                     figsize=(12, 6),
-                     color=['#e74c3c', '#2ecc71'])
-ax.set_title('NaN Percentage Per Column (Artists Dataset)', fontsize=12, fontweight='bold')
-ax.set_xlabel('Columns', fontsize=12)
-ax.set_ylabel('Percentage', fontsize=12)
-plt.xticks(rotation=45, ha='right')
-plt.tight_layout()
-plt.show()
+## Let's import augmented data from our search, we manually searched the result and saved the url in the last column for easy reference
+artists_search = pd.read_csv("../datasets/artists_missing_vals.csv")
+artists_search.head()
+
+updated_ids = artists_search['id_author'].unique()
+
+# Step 2: Remove those rows from the original artists dataframe
+artists_without_updates = artists[~artists['id_author'].isin(updated_ids)]
+
+# Step 3: Concatenate the remaining original data with the updated data
+artists_final = pd.concat([artists_search, artists_without_updates], ignore_index=True)
+
+# Verify the result
+print(f"Original artists: {len(artists)} rows")
+print(f"Artists updated: {len(artists_search)} rows")
+print(f"Artists without updated IDs: {len(artists_without_updates)} rows")
+print(f"Final combined: {len(artists_final)} rows")
+
+plot_nans_stacked(artists_final, 'NaN Percentage Per Column (Augmented Artists Dataset)')
 
 ## Tracks
 # Check how many NaNs are present and plot the number of NaN per each column
-nan_count_tracks = tracks.isnull().sum()
-nan_pct_tracks = (nan_count_tracks / len(tracks)) * 100
-non_nan_pct_tracks = (tracks.notnull().sum() / len(tracks)) * 100
-
-plot_data = pd.DataFrame({
-    'NaN Values %': nan_pct_tracks,
-    'NaN Values': nan_count_tracks,
-    'Non-NaN Values %': non_nan_pct_tracks
-})
-
-plot_data = plot_data.sort_values(by=['NaN Values'], ascending=False)
-plot_data
-
-# plot
-plot_data.drop("NaN Values", axis=1, inplace=True)
-
-# stacked bar to see the proportion of NaN vs non NaN in each column for 
-ax = plot_data.plot(kind='bar', stacked=True, 
-                     figsize=(12, 6),
-                     color=['#e74c3c', '#2ecc71'])
-ax.set_title('NaN Percentage Per Column (Tracks Dataset)', fontsize=12, fontweight='bold')
-ax.set_xlabel('Columns', fontsize=12)
-ax.set_ylabel('Percentage', fontsize=12)
-plt.xticks(rotation=45, ha='right')
-plt.tight_layout()
-plt.show()
+plot_nans_stacked(tracks, 'NaN Percentage Per Column (Tracks Dataset)')
 
 ###################
 ## Data types, let's convert data types before doing duplicate analysis so that values in rows are in the correct datat type for comprare
@@ -168,82 +142,27 @@ print(f"Duplicate artist IDs: {artists_id_duplicates}")
 artists.columns
 
 # Birth places distribution
-birth_places = artists['birth_place'].value_counts().head(10)
-plt.figure(figsize=(12, 6)) 
-plt.bar(range(len(birth_places)), birth_places.values)
-plt.xticks(range(len(birth_places)), birth_places.index, rotation=45, ha='right')
-plt.xlabel('Birth Place')
-plt.ylabel('Occurrences')
-plt.title('Artists Top 10 Birth Place')
-plt.grid(True, alpha=0.3, axis='y')
-plt.tight_layout()
-plt.show()
+plot_bar_chart_distribution(artists, 'birth_place', 'Birth Place', 'Occurrences', 'Artists Top 10 Birth Place')
 
 # gender distribution
-gender = artists['gender'].value_counts()
-plt.figure(figsize=(12, 6)) 
-plt.bar(range(len(gender)), gender.values)
-plt.xticks(range(len(gender)), gender.index, rotation=45, ha='right')
-plt.xlabel('Gender')
-plt.ylabel('Occurrences')
-plt.title('Artists Gender Distribution')
-plt.grid(True, alpha=0.3, axis='y')
-plt.tight_layout()
-plt.show()
+plot_bar_chart_distribution(artists, 'gender', 'Gender', 'Occurrences', 'Artists Gender Distribution')
 
 # region distribution
-regions = artists['region'].value_counts().head(10)
-plt.figure(figsize=(12, 6)) 
-plt.bar(range(len(regions)), regions.values)
-plt.xticks(range(len(regions)), regions.index, rotation=45, ha='right')
-plt.xlabel('Region')
-plt.ylabel('Occurrences')
-plt.title('Artists Region Distribution')
-plt.grid(True, alpha=0.3, axis='y')
-plt.tight_layout()
-plt.show()
+plot_bar_chart_distribution(artists, 'region', 'Region', 'Occurrences', 'Artists Region Distribution')
 
 # province distribution
-province = artists['province'].value_counts().head(10)
-plt.figure(figsize=(12, 6)) 
-plt.bar(range(len(province)), province.values)
-plt.xticks(range(len(province)), province.index, rotation=45, ha='right')
-plt.xlabel('Province')
-plt.ylabel('Occurrences')
-plt.title('Artists Top 10 Provinces')
-plt.grid(True, alpha=0.3, axis='y')
-plt.tight_layout()
-plt.show()
+plot_bar_chart_distribution(artists, 'province', 'Province', 'Occurrences', 'Artists Top 10 Provinces')
 
 # countries distribution
-countries = artists['country'].value_counts()
-plt.figure(figsize=(12, 6)) 
-plt.bar(range(len(countries)), countries.values)
-plt.xticks(range(len(countries)), countries.index, rotation=45, ha='right')
-plt.xlabel('Country')
-plt.ylabel('Occurrences')
-plt.title('Artists Country Distribution')
-plt.grid(True, alpha=0.3, axis='y')
-plt.tight_layout()
-plt.show()
+plot_bar_chart_distribution(artists, 'country', 'Country', 'Occurrences', 'Artists Country Distribution')
 
-# Most used language
-lang_counts = tracks['language'].value_counts().head(10)
-plt.figure(figsize=(12, 6))
-plt.bar(range(len(lang_counts)), lang_counts.values)
-plt.xticks(range(len(lang_counts)), lang_counts.index, rotation=45, ha='right')
-plt.xlabel('Language')
-plt.ylabel('Occurrences')
-plt.yscale('log') 
-plt.title('Top 10 Languages Used')
-plt.grid(True, alpha=0.3, axis='y')
-plt.tight_layout()
-plt.show()
-
-
+# birth year
+plot_histogram(artists, 'birth_year', 'Birth Year', 'Number of Authors', 'Distribution of Authors by Birth Year', nbins=50)
 ############
-# Swear words analysis
+# Most used language
+plot_bar_chart_distribution(tracks, 'language', 'Language', 'Occurrences', 'Artists Country Distribution')
 
+# Swear words analysis
 # let's first see some upper and lower bounds for popularity
 print(f"Max popularity value: {tracks['popularity'].max()}")
 print(f"Min popularity value: {tracks['popularity'].min()}")
@@ -255,14 +174,7 @@ print(f"English swear words [Max - Mean]: [{tracks['swear_EN'].max()} - {tracks[
 # We can see that there are some odd values for popularity to explore, minimum value seems odd, same for max value which is very high, let's plot a distribution of popularity values
 # we can observe that around 3x more italian swear words are used compared to english, this was expected as we are analyzing italian rap
 # additionally we can see a low usage of swear words
-plt.figure(figsize=(12, 6))
-plt.scatter(tracks['swear_IT'], tracks['popularity'])
-plt.xlabel('Swear Words')
-plt.ylabel('Popularity')
-plt.title('Birth Year vs Career Start')
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.show()
+plot_scatter(tracks, 'swear_IT', 'popularity', 'Swear Words', 'Popularity', 'Birth Year vs Career Start')
 
 plt.figure(figsize=(12, 6))
 plt.scatter(tracks['swear_IT'], tracks['popularity'], label='IT Swear Words')
@@ -275,51 +187,16 @@ plt.grid(True, alpha=0.3)
 plt.tight_layout()
 plt.show()
 
-artists['birth_year'] = pd.to_datetime(artists['birth_date'], errors='coerce').dt.year
-plt.figure(figsize=(12, 6))
-plt.hist(artists['birth_year'].dropna(), bins=50)
-plt.xlabel('Birth Year')
-plt.ylabel('Number of Authors')
-plt.title('Distribution of Authors by Birth Year')
-plt.grid(True, alpha=0.3, axis='y')
-plt.tight_layout()
-plt.show()
-
-
 # We can see the map which resembles italy, partially
-plt.figure(figsize=(14, 8))
-plt.scatter(artists['longitude'], artists['latitude'], s=10)
-plt.xlabel('Longitude')
-plt.ylabel('Latitude')
-plt.title('Geographic Distribution of Birth Places')
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.show()
+plot_scatter(artists, 'longitude', 'latitude', 'Longitude', 'Latitude', 'Geographic Distribution of Birth Places')
 
 # We can see some expected correlation between birth year and activity start
-plt.figure(figsize=(12, 6))
-plt.scatter(artists['birth_year'], artists['active_start'])
-plt.xlabel('Birth Year')
-plt.ylabel('Carrer Start Year')
-plt.title('Birth Year vs Career Start')
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.show()
-
+plot_scatter(artists, 'birth_year', 'active_start', 'Birth Year', 'Carrer Start Year', 'Birth Year vs Career Start')
 
 # let's see stats on starting carrer age
 artists['active_start_year'] = pd.to_datetime(artists['active_start'], errors='coerce').dt.year
 artists['age_at_start'] = artists['active_start_year'] - artists['birth_year']
-
-plt.figure(figsize=(12, 6))
-plt.hist(artists['age_at_start'].dropna(), bins=50)
-plt.xlabel('Age At Carrer Start')
-plt.ylabel('Authors Count')
-plt.title('Distribution of Age at Career Start')
-plt.grid(True, axis='y')
-plt.legend()
-plt.tight_layout()
-plt.show()
+plot_histogram(artists, 'age_at_start', 'Age At Carrer Start', 'Authors Count', 'Distribution of Age at Career Start', nbins=50)
 
 print(f"Mean age at start: {artists['age_at_start'].mean():.2f}")
 print(f"Median age at start: {artists['age_at_start'].median():.2f}")
