@@ -14,8 +14,8 @@ sns.set(style="whitegrid")
 
 # load datasets from CSV to pandas df
 # artsists is delimited using ; so use sep=','
-artists = pd.read_csv("../datasets/artists.csv", sep=';')
-tracks = pd.read_csv("../datasets/tracks.csv")
+artists = pd.read_csv("../original_datasets/artists.csv", sep=';')
+tracks = pd.read_csv("../original_datasets/tracks.csv")
 
 ## Datasets shape
 artists_shape = artists.shape
@@ -40,16 +40,19 @@ tracks.head()
 plot_nans_stacked(artists, 'NaN Percentage Per Column (Artists Dataset)')
 
 ## Let's import augmented data from our search, we manually searched the result and saved the url in the last column for easy reference
-artists_search = pd.read_csv("../datasets/artists_missing_vals.csv")
+artists_search = pd.read_csv("../original_datasets/artists_missing_vals.csv")
 artists_search.head()
 
 updated_ids = artists_search['id_author'].unique()
 
-# Step 2: Remove those rows from the original artists dataframe
+# remove rows from the original artists dataframe
 artists_without_updates = artists[~artists['id_author'].isin(updated_ids)]
 
-# Step 3: Concatenate the remaining original data with the updated data
+# concatenate the remaining original data with the updated data
 artists_final = pd.concat([artists_search, artists_without_updates], ignore_index=True)
+
+# save to csv
+artists_final.to_csv("../enriched_datasets/artists.csv", index=False)
 
 # Verify the result
 print(f"Original artists: {len(artists)} rows")
@@ -157,7 +160,9 @@ plot_bar_chart_distribution(artists, 'province', 'Province', 'Occurrences', 'Art
 plot_bar_chart_distribution(artists, 'country', 'Country', 'Occurrences', 'Artists Country Distribution')
 
 # birth year
+artists['birth_year'] = pd.to_datetime(artists['birth_date'], errors='coerce').dt.year
 plot_histogram(artists, 'birth_year', 'Birth Year', 'Number of Authors', 'Distribution of Authors by Birth Year', nbins=50)
+
 ############
 # Most used language
 plot_bar_chart_distribution(tracks, 'language', 'Language', 'Occurrences', 'Artists Country Distribution')
