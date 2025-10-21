@@ -156,6 +156,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+API_keys/spotify_key.env
 
 # Spyder project settings
 .spyderproject
