@@ -63,3 +63,35 @@ def plot_histogram(df, column, xlabel, ylabel, title, nbins):
     plt.tight_layout()
     plt.show()
 
+def plot_boxplot(df, columns, title):
+    plt.figure(figsize=(12, 6))
+        
+    bp = plt.boxplot(df[columns], labels=columns, patch_artist=True)
+    
+    for patch in bp['boxes']:
+        patch.set_facecolor('#3498db')
+        patch.set_alpha(0.7)
+    
+    plt.title(title, fontsize=12, fontweight='bold')
+    plt.xticks(rotation=45, ha='right')
+    plt.grid(True, alpha=0.3, axis='y')
+    plt.tight_layout()
+    plt.show()
+
+    print(f"Quartile Stats")    
+    for col in columns:
+
+        q1 = data.quantile(0.25)
+        q2 = data.quantile(0.50)
+        q3 = data.quantile(0.75)
+        min_val = data.min()
+        max_val = data.max()
+        
+        print(f"Column {col}:")
+        print(f"  Min value: {min_val:.2f}")
+        print(f"  Q1 (25%): {q1:.2f}")
+        print(f"  Q2 (50%): {q2:.2f}")
+        print(f"  Q3 (75%): {q3:.2f}")
+        print(f"  Max value: {max_val:.2f}")
+        print(f"  IQR (Q3-Q1): {q3-q1:.2f}")
+        print("\n")

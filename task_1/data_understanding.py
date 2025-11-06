@@ -206,3 +206,38 @@ plot_histogram(artists, 'age_at_start', 'Age At Carrer Start', 'Authors Count', 
 print(f"Mean age at start: {artists['age_at_start'].mean():.2f}")
 print(f"Median age at start: {artists['age_at_start'].median():.2f}")
 print(f"Std dev: {artists['age_at_start'].std():.2f}")
+
+# 
+tracks.columns
+plot_boxplot(tracks, ["swear_IT", "swear_EN"], "Boxplot of swear words usage per song")
+plot_boxplot(tracks, ["popularity"], "Popularity boxplot")
+
+## Join datasets to check on the number of tracks made by each artist
+merged = tracks.merge(artists, left_on='id_artist', right_on='id_author', how='outer')
+
+print(f"Total records after merge: {len(merged)}")
+print(f"Original tracks: {len(tracks)}")
+print(f"Original artists: {len(artists)}")
+print(f"Lost rows: {len(tracks)-len(merged)}")
+print(f"Tracks without artist info: {merged['id_author'].isna().sum()}")
+print(f"Artists without tracks: {merged['id'].isna().sum()}")
+
+groups = merged.groupby(by='id_artist')
+    
+plot_nans_stacked(merged, "Missing Data After Merge")
+
+songs_per_author = merged.groupby('id_artist').size()
+
+# summary stats
+print(f"Min songs made by an artist: {songs_per_author.min()}")
+print(f"Max songs made by an artist: {songs_per_author.max()}")
+print(f"Mean songs per artist: {songs_per_author.mean()}")
+print(f"Median songs per artist: {songs_per_author.median()}")
+
+# top 10 artists with song count
+print("\nTop 10 artists by number of songs:")
+top_authors = songs_per_author.sort_values(ascending=False).head(10)
+
+for artist_id, count in top_authors.items():
+    artist_name = merged[merged['id_artist'] == artist_id]['name_artist'].iloc[0]
+    print(f"{artist_name}: {count}")
