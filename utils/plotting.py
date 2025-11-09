@@ -62,7 +62,7 @@ def plot_histogram(df, column, xlabel, ylabel, title, nbins):
     plt.grid(True, alpha=0.3, axis='y')
     plt.tight_layout()
     plt.show()
-
+    
 def plot_boxplot(df, columns, title):
     plt.figure(figsize=(12, 6))
         
@@ -80,12 +80,12 @@ def plot_boxplot(df, columns, title):
 
     print(f"Quartile Stats")    
     for col in columns:
-
-        q1 = data.quantile(0.25)
-        q2 = data.quantile(0.50)
-        q3 = data.quantile(0.75)
-        min_val = data.min()
-        max_val = data.max()
+        
+        q1 = df[col].quantile(0.25)
+        q2 = df[col].quantile(0.50)
+        q3 = df[col].quantile(0.75)
+        min_val = df[col].min()
+        max_val = df[col].max()
         
         print(f"Column {col}:")
         print(f"  Min value: {min_val:.2f}")
