@@ -201,8 +201,6 @@ def syntactic_complexity(numeric_tracks):
 
     # Vocabulary complexity
     voc_complexity = df["lexical_density"] * (df["char_per_tok"]/df["char_per_tok"].max())
-    
-    # TODO Eventually clean swear words
 
     df["syntactic_complexity"] = (verbosity + voc_complexity)/2
     return df
@@ -228,7 +226,6 @@ def lyrical_density(numeric_tracks):
     # Char per token (longer words -> more complex concepts)
     word_complexity = df["char_per_tok"] / (df["char_per_tok"].max() + eps)
     
-    # TODO check what was lexical_density
     df["lyrical_density"] = (clause_density + word_complexity + df["lexical_density"]) / 3
     return df
 
@@ -244,9 +241,7 @@ def multilingual_index(numeric_tracks, tracks):
 
 """
     SOUND FEATURES
-    TODO Check all the math behind it
-    TODO Check normzalization: if the values are both negative and positive I have to use
-        @ the deominator value.max()-value.min() to normalize
+    TODO Check if 'pitch' actually needs log
 """
 # TODO Keep because of high correlation
 def percussivness(numeric_tracks):
@@ -272,14 +267,14 @@ def timbre_brightness(numeric_tracks):
     rolloff_norm = df["rolloff"] / (df["rolloff"].max() + eps)
 
     # TODO Could be a weighted sum
-    df["timbre_brightness"] = centroid_norm + rolloff_norm
+    df["timbre_brightness"] = centroid_norm + rolloff_norm / 2
     return df
 
 def energy_index(numeric_tracks):
     df = numeric_tracks.copy()
 
     # Normalized loudness
-    loudness_norm = df["loudness"] / (df["loudness"].max() + eps)
+    loudness_norm = (df["loudness"] - df["loudness"].min()) / (df["loudness"].max() - df["loudness"].min() + eps)
     
     # Normalized flux
     flux_norm = df["flux"] / (df["flux"].max() + eps)
@@ -295,14 +290,12 @@ def harmonic_richness(numeric_tracks):
     df = numeric_tracks.copy()
 
     # Tonality
-    # TODO check if flatness [0, 1]
     tonality = 1 - df["flatness"]
     
     # Complexity
     complexity_norm = df["spectral_complexity"] / (df["spectral_complexity"].max() + eps)
     
     # Pitch stability
-    # TODO check if it actually needs log
     pitch_norm = np.log1p(df["pitch"]) / (np.log1p(df["pitch"].max()) + eps)
     
     df["harmonic_richness"] = (tonality * complexity_norm * pitch_norm) ** (1/3)
@@ -349,7 +342,7 @@ def boombap_index(numeric_tracks):
     # flux
     flux_norm = df["flux"] / (df["flux"].max() + eps)
     
-    # Complexity (sample chops)
+    # Complexity
     complexity_norm = df["spectral_complexity"] / (df["spectral_complexity"].max() + eps)
     
     df["boombap_index"] = (bpm_bb + flux_norm + complexity_norm) / 3
@@ -386,7 +379,7 @@ def drill_index(numeric_tracks):
     - Sliding bass
     """
     # BPM drill
-    bpm_drill = np.where((df["bpm"] >= 138) & (df["bpm"] <= 152), 1.0, 0.4)
+    bpm_drill = np.where((df["bpm"] >= 138) & (df["bpm"] <= 152), 1.0, 0.3)
     
     # Darkness
     rolloff_norm = df["rolloff"] / (df["rolloff"].max() + 1e-6)
@@ -411,10 +404,9 @@ def production_modernity(numeric_tracks):
     year_norm = (df["year"] - df["year"].min()) / (df["year"].max() - df["year"].min())
     
     #TODO Check this
-    year_norm = np.clip(year_norm, 0, 1)
+    #year_norm = np.clip(year_norm, 0, 1)
     
     # Normalized loudness (more recent = louder)
-    # TODO allign with the one before
     loudness_norm = (df["loudness"] - df["loudness"].min()) / (df["loudness"].max() - df["loudness"].min() + eps)
     
     # Brightness increasing with modernity
@@ -612,6 +604,3 @@ if __name__ == "__main__":
     enriched_tracks_heatmap(numeric_tracks)
     enriched_artists_heatmap(numeric_artists)
     enriched_full_heatmap(numeric_tracks, numeric_artists)
-
-
-
