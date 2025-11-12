@@ -18,8 +18,8 @@ warnings.filterwarnings('ignore')
 sns.set(style="whitegrid")
 
 # We import casted datasets to start data preparation
-tracks = pd.read_csv("../enriched_datasets/tracks_casted.csv", sep=',')
-artists = pd.read_csv("../enriched_datasets/artists_casted.csv", sep=',')
+tracks = pd.read_csv("../enriched_datasets/tracks_enriched.csv", sep=',')
+artists = pd.read_csv("../enriched_datasets/artists.csv", sep=',')
 
 # Remove duplicate (id, artist) pairs
 tracks.info()
@@ -136,3 +136,10 @@ tracks[tracks['album'].isnull()]
 # drop Useless columns
 
 tracks_columns = list(tracks.columns)
+
+
+###############################################################################################
+# export to csv
+
+tracks.to_csv('../prepared_datasets/tracks.csv', index=False)
+artists.to_csv('../prepared_datasets/aritsts.csv', index=False)
