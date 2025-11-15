@@ -21,6 +21,11 @@ sns.set(style="whitegrid")
 tracks = pd.read_csv("../enriched_datasets/tracks_enriched.csv", sep=',')
 artists = pd.read_csv("../enriched_datasets/artists.csv", sep=',')
 
+# Print og number of tracks and artists
+print(f"Tracks shape: {tracks.shape[0]} rows x {tracks.shape[1]} columns")
+print(f"Artists shape: {artists.shape[0]} rows x {artists.shape[1]} columns\n")
+
+
 # Remove duplicate (id, artist) pairs
 tracks.info()
 artists.info()
@@ -70,11 +75,11 @@ len(tracks)
 # by checking again we can see that we do not have duplicate titles
 tracks[tracks.duplicated(subset=['full_title'])]
 
-# Drop id, id_artist, album_id and album image as they are not useful
-tracks.drop(['id', 'id_artist', 'album_image', 'id_album'], axis=1, inplace=True)
+# Drop album_id and album image as they are not useful
+tracks.drop(['album_image', 'id_album'], axis=1, inplace=True)
 
 artists.head()
-artists.drop(['id_author','source'], axis=1, inplace=True)
+artists.drop(['source'], axis=1, inplace=True)
 
 ###############################################################################################
 # Gender analysis
@@ -138,8 +143,14 @@ tracks[tracks['album'].isnull()]
 tracks_columns = list(tracks.columns)
 
 
+# Print final number of tracks and artists
+print(f"Tracks shape: {tracks.shape[0]} rows x {tracks.shape[1]} columns")
+print(f"Artists shape: {artists.shape[0]} rows x {artists.shape[1]} columns\n")
+
+
+
 ###############################################################################################
 # export to csv
 
 tracks.to_csv('../prepared_datasets/tracks.csv', index=False)
-artists.to_csv('../prepared_datasets/aritsts.csv', index=False)
+artists.to_csv('../prepared_datasets/artists.csv', index=False)

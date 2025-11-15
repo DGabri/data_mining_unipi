@@ -9,8 +9,8 @@ from datetime import datetime
 """
     Opening .csv file using Pandas df.
 """
-tracks = pd.read_csv("../enriched_datasets/tracks_enriched.csv")
-artists = pd.read_csv("../enriched_datasets/artists.csv")
+tracks = pd.read_csv("../prepared_datasets/tracks.csv")
+artists = pd.read_csv("../prepared_datasets/artists.csv")
 
 
 
@@ -29,18 +29,36 @@ def data_filling(tracks, artists):
     tracks = tracks.copy()
     artists = artists.copy()
 
+    # Data shape before modifications
+    print(f"Tracks shape: {tracks.shape[0]} rows x {tracks.shape[1]} columns")
+    print(f"Artists shape: {artists.shape[0]} rows x {artists.shape[1]} columns\n")
+
+
     # Tracks
-    tracks["popularity"] = pd.to_numeric(tracks["popularity"], errors='coerce')
-
-    tracks["year"] = pd.to_numeric(tracks["year"], errors='coerce')
-
     numeric_cols_t = tracks.select_dtypes(include=["number"]).columns
     
     for col in numeric_cols_t:
         tracks[col] = pd.to_numeric(tracks[col], errors='coerce')
     
     numeric_tracks = tracks[numeric_cols_t]
+
+    tracks_nan_per_feature = numeric_tracks.isna().sum()
+    print(f"Nan per feature (tracks)\n", tracks_nan_per_feature)
+
+    tracks_nan_per_row = numeric_tracks.isna().sum(axis=1)
+    print(f"Nan per row\n", tracks_nan_per_row)
+
+    if "stats_pageviews" in numeric_tracks.columns:
+        numeric_tracks = numeric_tracks.drop(columns=["stats_pageviews"])
+
+    if "month" in numeric_tracks.columns:
+        numeric_tracks = numeric_tracks.drop(columns=["month"])
     
+    if "day" in numeric_tracks.columns:
+        numeric_tracks = numeric_tracks.drop(columns=["day"])
+
+    numeric_tracks = numeric_tracks.dropna()
+
     # Artists
     if "active_end" in artists.columns:
         artists = artists.drop(columns=["active_end"])
@@ -55,9 +73,17 @@ def data_filling(tracks, artists):
     
     numeric_artists = artists[numeric_cols_a]
 
+    artists_nan_per_feature = numeric_artists.isna().sum()
+    print(f"Nan per feature (artists)\n", artists_nan_per_feature)
+
+    artists_nan_per_row = numeric_artists.isna().sum(axis=1)
+    print(f"Nan per row (artists)\n", artists_nan_per_row)
+
+    numeric_artists = numeric_artists.dropna()
+
     # Verifies status
-    print(f"Tracks shape: {numeric_tracks.shape[0]} rows x {numeric_tracks.shape[1]} columns")
-    print(f"Artists shape: {numeric_artists.shape[0]} rows x {numeric_artists.shape[1]} columns\n")
+    print(f"Numeric_tracks shape: {numeric_tracks.shape[0]} rows x {numeric_tracks.shape[1]} columns")
+    print(f"Numeric_artists shape: {numeric_artists.shape[0]} rows x {numeric_artists.shape[1]} columns\n")
 
     print(f"Numeric tracks sample:\n", numeric_tracks.head())
     print(f"Numeric artists sample:\n", numeric_artists.head())
@@ -66,7 +92,10 @@ def data_filling(tracks, artists):
 
 
 """
-    Reintroducing id and artist_id inside the modified datasets
+    Reintroducing in the numeric datasets:
+    - id 
+    - id_artist
+    - id_author
 """
 def datasets_completion(tracks, numeric_tracks, artists, numeric_artists):
     # Tracks
@@ -165,14 +194,6 @@ def og_full_heatmap(numeric_tracks, numeric_artists):
 
 
 """
-    TODO
-    DATA PREPARATION (still)
-    - understand the correct values of each og feature and handle errors
-"""
-
-
-
-"""
     Defining constant for the denominator
 """
 eps = 1e-6
@@ -189,8 +210,6 @@ def swear_density(numeric_tracks):
 
     # Percentage
     df["swear_density"] = swear_ratio * 100
-
-    # TODO If it is too low try logarithm
     return df
 
 def syntactic_complexity(numeric_tracks):
@@ -226,6 +245,7 @@ def lyrical_density(numeric_tracks):
     # Char per token (longer words -> more complex concepts)
     word_complexity = df["char_per_tok"] / (df["char_per_tok"].max() + eps)
     
+    # TODO Check if lexical_density needs to be norm.
     df["lyrical_density"] = (clause_density + word_complexity + df["lexical_density"]) / 3
     return df
 
@@ -244,7 +264,7 @@ def multilingual_index(numeric_tracks, tracks):
     TODO Check if 'pitch' actually needs log
 """
 # TODO Keep because of high correlation
-def percussivness(numeric_tracks):
+def percussiveness(numeric_tracks):
     df = numeric_tracks.copy()
 
     # Normalized zcr
@@ -253,8 +273,8 @@ def percussivness(numeric_tracks):
     # Normalized rolloff
     rolloff_norm = df["rolloff"] / (df["rolloff"].max() + eps)
 
-    # Percussivness
-    df["percussivness"] = zcr_norm * rolloff_norm
+    # Percussiveness
+    df["percussiveness"] = zcr_norm * rolloff_norm
     return df
 
 def timbre_brightness(numeric_tracks):
@@ -266,7 +286,6 @@ def timbre_brightness(numeric_tracks):
     # Normalized rolloff
     rolloff_norm = df["rolloff"] / (df["rolloff"].max() + eps)
 
-    # TODO Could be a weighted sum
     df["timbre_brightness"] = centroid_norm + rolloff_norm / 2
     return df
 
@@ -332,12 +351,12 @@ def boombap_index(numeric_tracks):
 
     """
         Identifies boom-bap/old school:
-        - bpm -> 85-95
+        - bpm -> 80-95
         - high flux
         - Complexity media-alta (samples)
     """
     # bpm score
-    bpm_bb = np.where((df["bpm"] >= 85) & (df["bpm"] <= 95), 1.0, 0.3)
+    bpm_bb = np.where((df["bpm"] >= 80) & (df["bpm"] <= 95), 1.0, 0.3)
     
     # flux
     flux_norm = df["flux"] / (df["flux"].max() + eps)
@@ -374,22 +393,21 @@ def drill_index(numeric_tracks):
 
     """
     Identifies UK Drill style:
-    - bpm -> 140-150
+    - bpm -> 135-150
     - low rolloff (dark sound)
     - Sliding bass
     """
     # BPM drill
-    bpm_drill = np.where((df["bpm"] >= 138) & (df["bpm"] <= 152), 1.0, 0.3)
-    
-    # Darkness
+    bpm_drill = np.where((df["bpm"] >= 135) & (df["bpm"] <= 150), 1.0, 0.3)
+
     rolloff_norm = df["rolloff"] / (df["rolloff"].max() + 1e-6)
-    darkness = 1 - rolloff_norm
+    subbass_score = 1 - rolloff_norm
     
     # Sliding bass (pitch + flatness combination)
     sliding_score = (np.log1p(df["pitch"]) / (np.log1p(df["pitch"].max()) + 1e-6) + 
                     df["flatness"]) / 2
     
-    df["drill_index"] = (bpm_drill + darkness + sliding_score) / 3
+    df["drill_index"] = (bpm_drill + subbass_score + sliding_score) / 3
     return df
 
 
@@ -561,11 +579,11 @@ if __name__ == "__main__":
     numeric_tracks, numeric_artists = datasets_completion(tracks, numeric_tracks, artists, numeric_artists)
 
     # Original heatmaps
-    og_tracks_heatmap(numeric_tracks)
+    #og_tracks_heatmap(numeric_tracks)
 
-    og_artists_heatmap(numeric_artists)
+    #og_artists_heatmap(numeric_artists)
 
-    og_full_heatmap(numeric_tracks, numeric_artists)
+    #og_full_heatmap(numeric_tracks, numeric_artists)
 
     # Tracks features
     numeric_tracks = swear_density(numeric_tracks)
@@ -573,7 +591,7 @@ if __name__ == "__main__":
     numeric_tracks = flow_complexity(numeric_tracks)
     numeric_tracks = lyrical_density(numeric_tracks)
     numeric_tracks = multilingual_index(numeric_tracks, tracks)
-    numeric_tracks = percussivness(numeric_tracks)
+    numeric_tracks = percussiveness(numeric_tracks)
     numeric_tracks = timbre_brightness(numeric_tracks)
     numeric_tracks = energy_index(numeric_tracks)
     numeric_tracks = harmonic_richness(numeric_tracks)
@@ -583,7 +601,7 @@ if __name__ == "__main__":
     numeric_tracks = drill_index(numeric_tracks)
     numeric_tracks = production_modernity(numeric_tracks)
     numeric_tracks = career_maturity(numeric_tracks)
-    numeric_tracks = summer_hit(numeric_tracks)
+    #numeric_tracks = summer_hit(numeric_tracks)
     
     print(f"\nFinal numeric_tracks")
     print(f"Shape: {numeric_tracks.shape}")
@@ -601,6 +619,6 @@ if __name__ == "__main__":
     print(numeric_artists.head())
 
     # Enriched dataset heatmaps
-    enriched_tracks_heatmap(numeric_tracks)
-    enriched_artists_heatmap(numeric_artists)
-    enriched_full_heatmap(numeric_tracks, numeric_artists)
+    #enriched_tracks_heatmap(numeric_tracks)
+    #enriched_artists_heatmap(numeric_artists)
+    #enriched_full_heatmap(numeric_tracks, numeric_artists)
