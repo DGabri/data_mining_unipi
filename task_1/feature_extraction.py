@@ -6,113 +6,6 @@ from datetime import datetime
 
 
 
-"""
-    Opening .csv file using Pandas df.
-"""
-tracks = pd.read_csv("../prepared_datasets/tracks.csv")
-artists = pd.read_csv("../prepared_datasets/artists.csv")
-
-
-
-"""
-    DATA PREPARATION
-    Uncorrect value type (temporary) management.
-    - Finds numeric columns in both datasets
-    - Forces popularity as a numeric value
-    - Forces year ad a numeric value
-    - Drops non-number values
-    - Drops active_end column
-    - Takes into account only the active_start year
-    TODO Understand why popularity is not recognised as numeric.
-"""
-def data_filling(tracks, artists):
-    tracks = tracks.copy()
-    artists = artists.copy()
-
-    # Data shape before modifications
-    print(f"Tracks shape: {tracks.shape[0]} rows x {tracks.shape[1]} columns")
-    print(f"Artists shape: {artists.shape[0]} rows x {artists.shape[1]} columns\n")
-
-
-    # Tracks
-    numeric_cols_t = tracks.select_dtypes(include=["number"]).columns
-    
-    for col in numeric_cols_t:
-        tracks[col] = pd.to_numeric(tracks[col], errors='coerce')
-    
-    numeric_tracks = tracks[numeric_cols_t]
-
-    tracks_nan_per_feature = numeric_tracks.isna().sum()
-    print(f"Nan per feature (tracks)\n", tracks_nan_per_feature)
-
-    tracks_nan_per_row = numeric_tracks.isna().sum(axis=1)
-    print(f"Nan per row\n", tracks_nan_per_row)
-
-    if "stats_pageviews" in numeric_tracks.columns:
-        numeric_tracks = numeric_tracks.drop(columns=["stats_pageviews"])
-
-    if "month" in numeric_tracks.columns:
-        numeric_tracks = numeric_tracks.drop(columns=["month"])
-    
-    if "day" in numeric_tracks.columns:
-        numeric_tracks = numeric_tracks.drop(columns=["day"])
-
-    numeric_tracks = numeric_tracks.dropna()
-
-    # Artists
-    if "active_end" in artists.columns:
-        artists = artists.drop(columns=["active_end"])
-
-    if "active_start" in artists.columns:
-        artists["active_start_year"] = pd.to_datetime(artists["active_start"], errors="coerce").dt.year
-
-    numeric_cols_a = artists.select_dtypes(include=["number"]).columns
-
-    for col in numeric_cols_a:
-        artists[col] = pd.to_numeric(artists[col], errors='coerce')
-    
-    numeric_artists = artists[numeric_cols_a]
-
-    artists_nan_per_feature = numeric_artists.isna().sum()
-    print(f"Nan per feature (artists)\n", artists_nan_per_feature)
-
-    artists_nan_per_row = numeric_artists.isna().sum(axis=1)
-    print(f"Nan per row (artists)\n", artists_nan_per_row)
-
-    numeric_artists = numeric_artists.dropna()
-
-    # Verifies status
-    print(f"Numeric_tracks shape: {numeric_tracks.shape[0]} rows x {numeric_tracks.shape[1]} columns")
-    print(f"Numeric_artists shape: {numeric_artists.shape[0]} rows x {numeric_artists.shape[1]} columns\n")
-
-    print(f"Numeric tracks sample:\n", numeric_tracks.head())
-    print(f"Numeric artists sample:\n", numeric_artists.head())
-    return numeric_tracks, numeric_artists
-
-
-
-"""
-    Reintroducing in the numeric datasets:
-    - id 
-    - id_artist
-    - id_author
-"""
-def datasets_completion(tracks, numeric_tracks, artists, numeric_artists):
-    # Tracks
-    if "id" in tracks.columns:
-        numeric_tracks.insert(0, "id", tracks["id"])
-
-    if "id_artist" in tracks.columns:
-        numeric_tracks.insert(1, "id_artist", tracks["id_artist"])
-
-    # Artists
-    if "id_author" in artists.columns:
-        numeric_artists.insert(0, "id_author", artists["id_author"])
-
-    # Verifies status
-    print(f"Numeric tracks sample:\n", numeric_tracks.head())
-    print(f"Numeric artists sample:\n", numeric_artists.head(), "\n")
-    return numeric_tracks, numeric_artists
 
 
 
@@ -122,9 +15,14 @@ def datasets_completion(tracks, numeric_tracks, artists, numeric_artists):
     2. artist
     3. both
 """
-def og_tracks_heatmap(numeric_tracks):
-    numeric_cols = numeric_tracks.select_dtypes(include=[np.number]).columns
-    tracks_for_corr = numeric_tracks[numeric_cols]
+def og_tracks_heatmap(tracks):
+    numeric_cols = tracks.select_dtypes(include=[np.number]).columns
+    
+    # Removing boolean
+    if "explicit" in numeric_cols:
+        numeric_cols = numeric_cols.drop("explicit")
+
+    tracks_for_corr = tracks[numeric_cols]
 
     og_tracks_corr = tracks_for_corr.corr()
 
@@ -137,9 +35,9 @@ def og_tracks_heatmap(numeric_tracks):
     plt.show()
     return
 
-def og_artists_heatmap(numeric_artists):
-    numeric_cols = numeric_artists.select_dtypes(include=[np.number]).columns
-    artists_for_corr = numeric_artists[numeric_cols]
+def og_artists_heatmap(artists):
+    numeric_cols = artists.select_dtypes(include=[np.number]).columns
+    artists_for_corr = artists[numeric_cols]
 
     og_artists_corr = artists_for_corr.corr()
 
@@ -152,21 +50,15 @@ def og_artists_heatmap(numeric_artists):
     plt.show()
     return
 
-def og_full_heatmap(numeric_tracks, numeric_artists):
-    # Merging the two datasets
-    og_dataset = numeric_tracks.merge(
-        numeric_artists,
-        left_on='id_artist',
-        right_on='id_author',
-        how='left'
-    )
-    
-    if 'id_author' in og_dataset.columns:
-        og_dataset = og_dataset.drop(columns=['id_author'])
-    
+def og_full_heatmap(merged_dataset):
     # Selecting only numeric columns
-    numeric_cols = og_dataset.select_dtypes(include=[np.number]).columns
-    og_for_corr = og_dataset[numeric_cols]
+    numeric_cols = merged_dataset.select_dtypes(include=[np.number]).columns
+
+    # Removing boolean
+    if "explicit" in numeric_cols:
+        numeric_cols = numeric_cols.drop("explicit")
+
+    og_for_corr = merged_dataset[numeric_cols]
 
     og_corr = og_for_corr.corr()
 
@@ -189,7 +81,7 @@ def og_full_heatmap(numeric_tracks, numeric_artists):
     plt.yticks(rotation=0, fontsize=8)
     plt.tight_layout(rect=[0, 0.03, 1, 1])
     plt.show()
-    return
+    return 
 
 
 
@@ -203,8 +95,8 @@ eps = 1e-6
 """
     LANGUAGE FEATURES
 """
-def swear_density(numeric_tracks):
-    df = numeric_tracks.copy()
+def swear_density(merged_dataset):
+    df = merged_dataset.copy()
 
     swear_ratio = (df["swear_IT"] + df["swear_EN"])/df["n_tokens"]
 
@@ -212,8 +104,8 @@ def swear_density(numeric_tracks):
     df["swear_density"] = swear_ratio * 100
     return df
 
-def syntactic_complexity(numeric_tracks):
-    df = numeric_tracks.copy()
+def syntactic_complexity(merged_dataset):
+    df = merged_dataset.copy()
 
     # Verbosity
     verbosity = df["n_tokens"] / df["n_tokens"].max()
@@ -224,8 +116,8 @@ def syntactic_complexity(numeric_tracks):
     df["syntactic_complexity"] = (verbosity + voc_complexity)/2
     return df
 
-def flow_complexity(numeric_tracks):
-    df = numeric_tracks.copy()
+def flow_complexity(merged_dataset):
+    df = merged_dataset.copy()
     # TODO Check math
 
     # Tokens per sentence normalized
@@ -237,8 +129,8 @@ def flow_complexity(numeric_tracks):
     df["flow_complexity"] = (tps_norm + flux_norm) / 2
     return df
 
-def lyrical_density(numeric_tracks):
-    df = numeric_tracks.copy()
+def lyrical_density(merged_dataset):
+    df = merged_dataset.copy()
 
     clause_density = df["avg_token_per_clause"] / (df["avg_token_per_clause"].max() + eps)
     
@@ -249,12 +141,12 @@ def lyrical_density(numeric_tracks):
     df["lyrical_density"] = (clause_density + word_complexity + df["lexical_density"]) / 3
     return df
 
-def multilingual_index(numeric_tracks, tracks):
-    df = numeric_tracks.copy()
+def multilingual_index(merged_dataset):
+    df = merged_dataset.copy()
     
     df["multilingual_index"] = 0
 
-    df.loc[tracks["language"] != "it", "multilingual_index"] = 1
+    df.loc[merged_dataset["language"] != "it", "multilingual_index"] = 1
     return df
 
 
@@ -264,8 +156,8 @@ def multilingual_index(numeric_tracks, tracks):
     TODO Check if 'pitch' actually needs log
 """
 # TODO Keep because of high correlation
-def percussiveness(numeric_tracks):
-    df = numeric_tracks.copy()
+def percussiveness(merged_dataset):
+    df = merged_dataset.copy()
 
     # Normalized zcr
     zcr_norm = df["zcr"] / (df["zcr"].max() + eps)
@@ -277,8 +169,8 @@ def percussiveness(numeric_tracks):
     df["percussiveness"] = zcr_norm * rolloff_norm
     return df
 
-def timbre_brightness(numeric_tracks):
-    df = numeric_tracks.copy()
+def timbre_brightness(merged_dataset):
+    df = merged_dataset.copy()
 
     # Normalized centroid
     centroid_norm = df["centroid"] / (df["centroid"].max() + eps)
@@ -289,8 +181,8 @@ def timbre_brightness(numeric_tracks):
     df["timbre_brightness"] = centroid_norm + rolloff_norm / 2
     return df
 
-def energy_index(numeric_tracks):
-    df = numeric_tracks.copy()
+def energy_index(merged_dataset):
+    df = merged_dataset.copy()
 
     # Normalized loudness
     loudness_norm = (df["loudness"] - df["loudness"].min()) / (df["loudness"].max() - df["loudness"].min() + eps)
@@ -305,8 +197,8 @@ def energy_index(numeric_tracks):
     df["energy_index"] = (loudness_norm + flux_norm + zcr_norm) / 3
     return df
 
-def harmonic_richness(numeric_tracks):
-    df = numeric_tracks.copy()
+def harmonic_richness(merged_dataset):
+    df = merged_dataset.copy()
 
     # Tonality
     tonality = 1 - df["flatness"]
@@ -320,8 +212,8 @@ def harmonic_richness(numeric_tracks):
     df["harmonic_richness"] = (tonality * complexity_norm * pitch_norm) ** (1/3)
     return df
 
-def trap_index(numeric_tracks):
-    df = numeric_tracks.copy()
+def trap_index(merged_dataset):
+    df = merged_dataset.copy()
 
     """
         Identifies trap characteristics:
@@ -346,8 +238,8 @@ def trap_index(numeric_tracks):
     df["trap_index"] = (bpm_trap + subbass_score + loudness_norm) / 3
     return df
 
-def boombap_index(numeric_tracks):
-    df = numeric_tracks.copy()
+def boombap_index(merged_dataset):
+    df = merged_dataset.copy()
 
     """
         Identifies boom-bap/old school:
@@ -367,8 +259,8 @@ def boombap_index(numeric_tracks):
     df["boombap_index"] = (bpm_bb + flux_norm + complexity_norm) / 3
     return df
 
-def cloud_rap_index(numeric_tracks):
-    df = numeric_tracks.copy()
+def cloud_rap_index(merged_dataset):
+    df = merged_dataset.copy()
 
     """
         Identifies cloud/emo rap:
@@ -388,8 +280,8 @@ def cloud_rap_index(numeric_tracks):
     df["cloud_rap_index"] = (pitch_norm + flatness_mid + centroid_norm) / 3
     return df
 
-def drill_index(numeric_tracks):
-    df = numeric_tracks.copy()
+def drill_index(merged_dataset):
+    df = merged_dataset.copy()
 
     """
     Identifies UK Drill style:
@@ -415,14 +307,11 @@ def drill_index(numeric_tracks):
 """
     POPULARITY FEATURES
 """
-def production_modernity(numeric_tracks):
-    df = numeric_tracks.copy()
+def production_modernity(merged_dataset):
+    df = merged_dataset.copy()
 
     # Normalized year of production
     year_norm = (df["year"] - df["year"].min()) / (df["year"].max() - df["year"].min())
-    
-    #TODO Check this
-    #year_norm = np.clip(year_norm, 0, 1)
     
     # Normalized loudness (more recent = louder)
     loudness_norm = (df["loudness"] - df["loudness"].min()) / (df["loudness"].max() - df["loudness"].min() + eps)
@@ -433,14 +322,14 @@ def production_modernity(numeric_tracks):
     df["production_modernity"] = (year_norm + loudness_norm + brightness) / 3
     return df
 
-def career_maturity(numeric_tracks):
-    df = numeric_tracks.copy()
+def career_maturity(merged_dataset):
+    df = merged_dataset.copy()
 
     df["career_maturity"] = df["disc_number"] / (df["disc_number"].max() + eps)
     return df
 
-def career_longevity(numeric_artists):
-    df = numeric_artists.copy()
+def career_longevity(merged_dataset):
+    df = merged_dataset.copy()
 
     current_year = datetime.now().year
     years_active = current_year - df["active_start_year"]
@@ -448,8 +337,8 @@ def career_longevity(numeric_artists):
     df["career_longevity"] = years_active / (years_active.max() + eps)
     return df
 
-def geographic_influence(numeric_artists):
-    df = numeric_artists.copy()
+def geographic_influence(merged_dataset):
+    df = merged_dataset.copy()
 
     # Uses min latitude as the origin
     lat_norm = (df["latitude"] - df["latitude"].min()) / \
@@ -458,14 +347,12 @@ def geographic_influence(numeric_artists):
     df["geographic_north_south"] = lat_norm
     return df
 
-def summer_hit(numeric_tracks):
-    df = numeric_tracks.copy()
-
-    # TODO can be simplified
+"""
+def summer_hit(merged_dataset):
+    df = merged_dataset.copy()
 
     # Save convertion to integers
-    # TODO Drop nans
-    df["month"] = pd.to_numeric(df["month"], errors="coerce").fillna(-1).astype(int)
+    df["month"] = pd.to_numeric(df["month"], errors="coerce").astype(int)
 
     # Vectorialized calculus
     conditions = [
@@ -476,68 +363,27 @@ def summer_hit(numeric_tracks):
 
     df["summer_hit_index"] = np.select(conditions, values, default=0.0)
     return df
-
-def gender_encoding(numeric_artists, artists):
-    df = numeric_artists.copy()
-    
-    # TODO Drop nans
-    gender_map = {'M': 0, 'F': 1}
-    df["gender_numeric"] = artists["gender"].map(gender_map).fillna(0.5)
-    return df
+"""
 
 
 
 """
     Final correlation matrices:
-    1. new tracks features
-    2. new artists features
-    3. all features
+    1. all new features
+    2. after non-useful columns removal
 """
-def enriched_tracks_heatmap(numeric_tracks):
-    numeric_cols = numeric_tracks.select_dtypes(include=[np.number]).columns
-    tracks_for_corr = numeric_tracks[numeric_cols]
-    
-    enriched_tracks_corr = tracks_for_corr.corr()
-
-    plt.figure(figsize=(18, 14))
-    sns.heatmap(enriched_tracks_corr, cmap="coolwarm", annot=True, fmt=".2f", linewidths=0.5, annot_kws={"size": 8})
-    plt.title("Heatmap of correlations - enriched tracks features")
-    plt.xticks(rotation=45, ha='right', fontsize=8)
-    plt.yticks(fontsize=8)
-    plt.tight_layout(rect=[0, 0.02, 1, 1])
-    plt.show()
-    return
-
-def enriched_artists_heatmap(numeric_artists):
-    numeric_cols = numeric_artists.select_dtypes(include=[np.number]).columns
-    artists_for_corr = numeric_artists[numeric_cols]
-    
-    enriched_artists_corr = artists_for_corr.corr()
-
-    plt.figure(figsize=(12, 10))
-    sns.heatmap(enriched_artists_corr, cmap="coolwarm", annot=True, fmt=".2f", linewidths=0.5, annot_kws={"size": 8})
-    plt.title("Heatmap of correlations - enriched artists features")
-    plt.xticks(rotation=45, ha='right', fontsize=9)
-    plt.yticks(fontsize=9)
-    plt.tight_layout()
-    plt.show()
-    return
-
-def enriched_full_heatmap(numeric_tracks, numeric_artists):
-    # Merging the two datasets
-    final_dataset = numeric_tracks.merge(
-        numeric_artists,
-        left_on='id_artist',
-        right_on='id_author',
-        how='left'
-    )
-    
-    if 'id_author' in final_dataset.columns:
-        final_dataset = final_dataset.drop(columns=['id_author'])
-    
+def enriched_heatmap(final_merged_dataset):
     # Selecting only numeric columns
-    numeric_cols = final_dataset.select_dtypes(include=[np.number]).columns
-    final_for_corr = final_dataset[numeric_cols]
+    numeric_cols = final_merged_dataset.select_dtypes(include=[np.number]).columns
+
+    # Removing booleans
+    if "explicit" in numeric_cols:
+        numeric_cols = numeric_cols.drop("explicit")
+
+    if "multilingual_index" in numeric_cols:
+        numeric_cols = numeric_cols.drop("multilingual_index")
+
+    final_for_corr = final_merged_dataset[numeric_cols]
     
     enriched_full_corr = final_for_corr.corr()
     
@@ -566,59 +412,82 @@ def enriched_full_heatmap(numeric_tracks, numeric_artists):
 
 
 
-"""
-    TODO Dropping redundant/useless features
-"""
-
-
-
 if __name__ == "__main__":
-    numeric_tracks, numeric_artists = data_filling(tracks, artists)
+    # Opening files
+    tracks = pd.read_csv("../prepared_datasets/tracks.csv")
+    artists = pd.read_csv("../prepared_datasets/artists.csv")
 
-    # Adding ids
-    numeric_tracks, numeric_artists = datasets_completion(tracks, numeric_tracks, artists, numeric_artists)
+    tracks = tracks.copy()
+    artists = artists.copy()
+
+    print(f"Tracks shape: {tracks.shape[0]} rows x {tracks.shape[1]} columns")
+    print(f"Artists shape: {artists.shape[0]} rows x {artists.shape[1]} columns\n")
+
+    print(f"Tracks sample:\n", tracks.head())
+    print(f"Artists sample:\n", artists.head())
+
+    print(f"Tracks types:", tracks.info())
+    print(f"Artists types:", artists.info())
+
+    print("\n \n \n")
+
+    # Merging the two datasets
+    merged_dataset = tracks.merge(
+        artists,
+        left_on='id_artist',
+        right_on='id_author',
+        how='left'
+    )
+
+    if "id_author" in merged_dataset.columns:
+        merged_dataset = merged_dataset.drop(columns=["id_author"])
+
+    merged_dataset = merged_dataset.dropna()
+    print(f"Original merged dataset shape: {merged_dataset.shape[0]} rows x {merged_dataset.shape[1]} columns")
+
+    print("\n \n \n")
 
     # Original heatmaps
-    #og_tracks_heatmap(numeric_tracks)
-
-    #og_artists_heatmap(numeric_artists)
-
-    #og_full_heatmap(numeric_tracks, numeric_artists)
+    #og_tracks_heatmap(tracks)
+#
+    #og_artists_heatmap(artists)
+#
+    #og_full_heatmap(merged_dataset)
 
     # Tracks features
-    numeric_tracks = swear_density(numeric_tracks)
-    numeric_tracks = syntactic_complexity(numeric_tracks)
-    numeric_tracks = flow_complexity(numeric_tracks)
-    numeric_tracks = lyrical_density(numeric_tracks)
-    numeric_tracks = multilingual_index(numeric_tracks, tracks)
-    numeric_tracks = percussiveness(numeric_tracks)
-    numeric_tracks = timbre_brightness(numeric_tracks)
-    numeric_tracks = energy_index(numeric_tracks)
-    numeric_tracks = harmonic_richness(numeric_tracks)
-    numeric_tracks = trap_index(numeric_tracks)
-    numeric_tracks = boombap_index(numeric_tracks)
-    numeric_tracks = cloud_rap_index(numeric_tracks)
-    numeric_tracks = drill_index(numeric_tracks)
-    numeric_tracks = production_modernity(numeric_tracks)
-    numeric_tracks = career_maturity(numeric_tracks)
-    #numeric_tracks = summer_hit(numeric_tracks)
+    merged_dataset = swear_density(merged_dataset)
+    merged_dataset = syntactic_complexity(merged_dataset)
+    merged_dataset = flow_complexity(merged_dataset)
+    merged_dataset = lyrical_density(merged_dataset)
+    merged_dataset = multilingual_index(merged_dataset)
+    merged_dataset = percussiveness(merged_dataset)
+    merged_dataset = timbre_brightness(merged_dataset)
+    merged_dataset = energy_index(merged_dataset)
+    merged_dataset = harmonic_richness(merged_dataset)
+    merged_dataset = trap_index(merged_dataset)
+    merged_dataset = boombap_index(merged_dataset)
+    merged_dataset = cloud_rap_index(merged_dataset)
+    merged_dataset = drill_index(merged_dataset)
+    merged_dataset = production_modernity(merged_dataset)
+    merged_dataset = career_maturity(merged_dataset)
+    #merged_dataset = summer_hit(merged_dataset)
+    merged_dataset = career_longevity(merged_dataset)    
+    merged_dataset = geographic_influence(merged_dataset)
     
-    print(f"\nFinal numeric_tracks")
-    print(f"Shape: {numeric_tracks.shape}")
-    print(f"Columns: {numeric_tracks.columns.tolist()}")
-    print(numeric_tracks.head())
+    print(f"Merged dataset shape: {merged_dataset.shape[0]} rows x {merged_dataset.shape[1]} columns")
+    print(f"Columns: {merged_dataset.columns.tolist()}")
     
-    # Artist features
-    numeric_artists = career_longevity(numeric_artists)    
-    numeric_artists = geographic_influence(numeric_artists)
-    numeric_artists = gender_encoding(numeric_artists, artists)
-    
-    print(f"\nFinal numeric_artists")
-    print(f"Shape: {numeric_artists.shape}")
-    print(f"Columns: {numeric_artists.columns.tolist()}")
-    print(numeric_artists.head())
-
     # Enriched dataset heatmaps
-    #enriched_tracks_heatmap(numeric_tracks)
-    #enriched_artists_heatmap(numeric_artists)
-    #enriched_full_heatmap(numeric_tracks, numeric_artists)
+    enriched_heatmap(merged_dataset)
+
+    # Dropping columns with high correlation
+    merged_dataset = merged_dataset.drop(columns=[
+            "zcr",
+            "rolloff",
+            "",
+            "",
+            "",
+        ])
+
+    enriched_heatmap(merged_dataset)
+    
