@@ -222,7 +222,8 @@ reduced_artists["active_start_year"] = (
 )
 
 reduced_artists = reduced_artists.drop(columns=["active_start"])
-
+reduced_tracks = reduced_tracks.drop(columns=["year"])
+reduced_artists = reduced_artists.drop(columns=["first_track_year"])
 
 artists_nan_per_feature = reduced_artists.isna().sum()
 print(f"Nan per feature (artists):\n", artists_nan_per_feature)
@@ -303,13 +304,6 @@ print(f"Counter of explicit tracks after correction:", reduced_tracks["explicit"
 
 print("\n")
 
-# year
-reduced_tracks = reduced_tracks[reduced_tracks["year"] <= 2025]
-
-print(f"Tracks shape after removing invalid year: {reduced_tracks.shape[0]} rows x {reduced_tracks.shape[1]} columns")
-
-print("\n")
-
 # album_release_year
 reduced_tracks = reduced_tracks[reduced_tracks["album_release_year"] <= 2025]
 
@@ -321,11 +315,17 @@ print("\n")
 count_invalid_zcr = ((reduced_tracks["zcr"] < 0) | (reduced_tracks["zcr"] > 1)).sum()
 print(f"Invalid number of zcr:", count_invalid_zcr)
 
+print(f"zcr min value:", reduced_tracks["zcr"].min())
+print(f"zcr max value:", reduced_tracks["zcr"].max())
+
 print("\n")
 
 # flatness
 count_invalid_flatness = ((reduced_tracks["flatness"] < 0) | (reduced_tracks["flatness"] > 1)).sum()
 print(f"Invalid number of flatness:", count_invalid_flatness)
+
+print(f"Flatness min value:", reduced_tracks["flatness"].min())
+print(f"Flatness max value:", reduced_tracks["flatness"].max())
 
 print("\n")
 
@@ -371,8 +371,10 @@ print(f"Invalid number of active start year:", count_invalid_active_start)
 mask_invalid_active_start = reduced_artists["active_start_year"] < reduced_artists["birth_date_year"]
 
 reduced_artists.loc[mask_invalid_active_start, "active_start_year"] = (
-    reduced_artists["birth_date_year"] + 10
+    reduced_artists["birth_date_year"] + 18
 )
+print("Also dropping brith date year because of high correlation:")
+reduced_artists = reduced_artists.drop(columns=["birth_date_year"])
 
 print("\n")
 
@@ -412,7 +414,7 @@ print("\n \n \n")
         - checking if they are in the expected range
         - removing outliers with the sigma method (more malleable)
 
-    2. year, album_release_year
+    2. album_release_year
         - already removed > upper bound
         - removing outliers on lower bound w/ sigma method
 
@@ -420,7 +422,7 @@ print("\n \n \n")
         - making sure the lower bound isn't negative
         - choosing not to remove outliers (sometimes a single letter is counted as token)
 
-    4. birth_date_year, active_start_year
+    4. active_start_year
 """
 # === 1. ===
 sound_outlier_mask_total = pd.Series(False, index=reduced_tracks.index)
@@ -435,7 +437,7 @@ for feature in sound_cols:
     mu = col.mean()
     sigma = col.std()
 
-    lower = mu - 4 * sigma
+    lower = 0
     upper = mu + 4 * sigma
 
     outlier_mask = (col < lower) | (col > upper)
@@ -445,7 +447,8 @@ for feature in sound_cols:
     print(f"Feature: {feature}")
     print(f"Min value: {min}")
     print(f"Max value: {max}")
-    print(f"Median value:{median}")
+    print(f"Mean value: {mu}")
+    print(f"Median value: {median}")
     print(f"Acceptable domain (4*sigma): [{lower:.3f}, {upper:.3f}]")
     print(f"Outliers found: {n_outliers}")
 
@@ -466,7 +469,7 @@ print("\n")
 # === 2. ===
 tracks_year_outlier_mask_total = pd.Series(False, index=reduced_tracks.index)
 
-tracks_datetime_cols = ["year", "album_release_year"]
+tracks_datetime_cols = ["album_release_year"]
 for feature in tracks_datetime_cols:
     col = reduced_tracks[feature]
 
@@ -543,7 +546,7 @@ print("\n")
 
 
 # === 4. ===
-artists_datetime_cols = ["birth_date_year", "active_start_year"]
+artists_datetime_cols = ["active_start_year"]
 for feature in artists_datetime_cols:
     col = reduced_artists[feature]
 

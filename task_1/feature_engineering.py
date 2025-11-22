@@ -6,9 +6,6 @@ from datetime import datetime
 
 
 
-
-
-
 """
     Plotting a correlation heatmap over the numeric values for:
     1. tracks
@@ -86,59 +83,24 @@ def og_full_heatmap(merged_dataset):
 
 
 """
-    Defining constant for the denominator
+    LEXICAL FEATURES
 """
-eps = 1e-6
-
-
-
-"""
-    LANGUAGE FEATURES
-"""
-def swear_density(merged_dataset):
+def swear_ratio(merged_dataset):
     df = merged_dataset.copy()
 
-    swear_ratio = (df["swear_IT"] + df["swear_EN"])/df["n_tokens"]
-
-    # Percentage
-    df["swear_density"] = swear_ratio * 100
+    df["swear_ratio"] = (df["swear_IT"] + df["swear_EN"])/df["n_tokens"]
     return df
 
 def syntactic_complexity(merged_dataset):
     df = merged_dataset.copy()
 
-    # Verbosity
-    verbosity = df["n_tokens"] / df["n_tokens"].max()
-
-    # Vocabulary complexity
-    voc_complexity = df["lexical_density"] * (df["char_per_tok"]/df["char_per_tok"].max())
-
-    df["syntactic_complexity"] = (verbosity + voc_complexity)/2
+    df["syntactic_complexity"] = df["n_tokens"] * df["char_per_tok"] * df["lexical_density"]
     return df
 
 def flow_complexity(merged_dataset):
     df = merged_dataset.copy()
-    # TODO Check math
 
-    # Tokens per sentence normalized
-    tps_norm = df["tokens_per_sent"] / df["tokens_per_sent"].max()
-    
-    # Flux normalized
-    flux_norm = df["flux"] / (df["flux"].max() + eps)
-    
-    df["flow_complexity"] = (tps_norm + flux_norm) / 2
-    return df
-
-def lyrical_density(merged_dataset):
-    df = merged_dataset.copy()
-
-    clause_density = df["avg_token_per_clause"] / (df["avg_token_per_clause"].max() + eps)
-    
-    # Char per token (longer words -> more complex concepts)
-    word_complexity = df["char_per_tok"] / (df["char_per_tok"].max() + eps)
-    
-    # TODO Check if lexical_density needs to be norm.
-    df["lyrical_density"] = (clause_density + word_complexity + df["lexical_density"]) / 3
+    df["flow_complexity"] = df["tokens_per_sent"] * df["flux"]
     return df
 
 def multilingual_index(merged_dataset):
@@ -152,64 +114,26 @@ def multilingual_index(merged_dataset):
 
 
 """
-    SOUND FEATURES
-    TODO Check if 'pitch' actually needs log
+    SOUND AND STYLE FEATURES
 """
-# TODO Keep because of high correlation
 def percussiveness(merged_dataset):
     df = merged_dataset.copy()
 
-    # Normalized zcr
-    zcr_norm = df["zcr"] / (df["zcr"].max() + eps)
-
-    # Normalized rolloff
-    rolloff_norm = df["rolloff"] / (df["rolloff"].max() + eps)
-
-    # Percussiveness
-    df["percussiveness"] = zcr_norm * rolloff_norm
+    df["percussiveness"] = df["rolloff"] * df["flux"] * df["rms"]
     return df
 
 def timbre_brightness(merged_dataset):
     df = merged_dataset.copy()
 
-    # Normalized centroid
-    centroid_norm = df["centroid"] / (df["centroid"].max() + eps)
-
-    # Normalized rolloff
-    rolloff_norm = df["rolloff"] / (df["rolloff"].max() + eps)
-
-    df["timbre_brightness"] = centroid_norm + rolloff_norm / 2
-    return df
-
-def energy_index(merged_dataset):
-    df = merged_dataset.copy()
-
-    # Normalized loudness
-    loudness_norm = (df["loudness"] - df["loudness"].min()) / (df["loudness"].max() - df["loudness"].min() + eps)
-    
-    # Normalized flux
-    flux_norm = df["flux"] / (df["flux"].max() + eps)
-    
-    # Normalized zcr
-    zcr_norm = df["zcr"] / (df["zcr"].max() + eps)
-
-    # Energy index
-    df["energy_index"] = (loudness_norm + flux_norm + zcr_norm) / 3
+    df["timbre_brightness"] = df["centroid"] + df["rolloff"] / 2
     return df
 
 def harmonic_richness(merged_dataset):
     df = merged_dataset.copy()
 
-    # Tonality
     tonality = 1 - df["flatness"]
-    
-    # Complexity
-    complexity_norm = df["spectral_complexity"] / (df["spectral_complexity"].max() + eps)
-    
-    # Pitch stability
-    pitch_norm = np.log1p(df["pitch"]) / (np.log1p(df["pitch"].max()) + eps)
-    
-    df["harmonic_richness"] = (tonality * complexity_norm * pitch_norm) ** (1/3)
+
+    df["harmonic_richness"] = tonality * df["spectral_complexity"] * df["pitch"]
     return df
 
 def trap_index(merged_dataset):
@@ -219,7 +143,7 @@ def trap_index(merged_dataset):
         Identifies trap characteristics:
         - bpm -> 130-170 (or 65-85 half-time)
         - Sub-bass (low rolloff)
-        - high loudness
+        - high rms
     """
     # bpm score
     bpm_trap = np.where(
@@ -228,14 +152,9 @@ def trap_index(merged_dataset):
         1.0, 0.3
     )
     
-    # Sub-bass intensity (low rolloff = more basses)
-    rolloff_norm = df["rolloff"] / (df["rolloff"].max() + eps)
-    subbass_score = 1 - rolloff_norm
+    subbass_score = df["timbre_brightness"].max() - df["timbre_brightness"]
     
-    # Loudness
-    loudness_norm = (df["loudness"] - df["loudness"].min()) / (df["loudness"].max() - df["loudness"].min() + eps)
-    
-    df["trap_index"] = (bpm_trap + subbass_score + loudness_norm) / 3
+    df["trap_index"] = bpm_trap * subbass_score * df["rms"]
     return df
 
 def boombap_index(merged_dataset):
@@ -243,41 +162,35 @@ def boombap_index(merged_dataset):
 
     """
         Identifies boom-bap/old school:
-        - bpm -> 80-95
-        - high flux
-        - Complexity media-alta (samples)
+        - bpm -> 85-95
+        - emphasizes mid range
     """
     # bpm score
-    bpm_bb = np.where((df["bpm"] >= 80) & (df["bpm"] <= 95), 1.0, 0.3)
+    bpm_bb = np.where((df["bpm"] >= 85) & (df["bpm"] <= 95), 1.0, 0.3)
     
-    # flux
-    flux_norm = df["flux"] / (df["flux"].max() + eps)
+    spectral_mid = df["spectral_complexity"].max() -\
+        np.abs(df["spectral_complexity"] - (df["spectral_complexity"]/2)) * 2
     
-    # Complexity
-    complexity_norm = df["spectral_complexity"] / (df["spectral_complexity"].max() + eps)
-    
-    df["boombap_index"] = (bpm_bb + flux_norm + complexity_norm) / 3
+    df["boombap_index"] = bpm_bb * spectral_mid
     return df
 
 def cloud_rap_index(merged_dataset):
     df = merged_dataset.copy()
 
     """
-        Identifies cloud/emo rap:
-        - high pitch (melodic)
-        - medium-high centroid
-        - medium flatness
+        Identifies cloud rap:
+        - bpm -> 60-80
+        - low flatness (harmonic)
+        - low flux (sound changing slowly) 
     """
-    # Pitch presence
-    pitch_norm = np.log1p(df["pitch"]) / (np.log1p(df["pitch"].max()) + eps)
+    # bpm score
+    bpm_cloud = np.where((df["bpm"] >= 60) & (df["bpm"] <= 80), 1.0, 0.3)
     
-    # Medium flatness (atmospheric)
-    flatness_mid = 1 - np.abs(df["flatness"] - 0.5) * 2
+    flatness_low = df["flatness"].max() - df["flatness"]
+
+    flux_low = df["flux"].max() - df["flux"]
     
-    # Medium-high centroid
-    centroid_norm = df["centroid"] / (df["centroid"].max() + eps)
-    
-    df["cloud_rap_index"] = (pitch_norm + flatness_mid + centroid_norm) / 3
+    df["cloud_rap_index"] = bpm_cloud * flatness_low * flux_low
     return df
 
 def drill_index(merged_dataset):
@@ -292,78 +205,22 @@ def drill_index(merged_dataset):
     # BPM drill
     bpm_drill = np.where((df["bpm"] >= 135) & (df["bpm"] <= 150), 1.0, 0.3)
 
-    rolloff_norm = df["rolloff"] / (df["rolloff"].max() + 1e-6)
-    subbass_score = 1 - rolloff_norm
-    
-    # Sliding bass (pitch + flatness combination)
-    sliding_score = (np.log1p(df["pitch"]) / (np.log1p(df["pitch"].max()) + 1e-6) + 
-                    df["flatness"]) / 2
-    
-    df["drill_index"] = (bpm_drill + subbass_score + sliding_score) / 3
+    subbass_score = df["timbre_brightness"].max() - df["timbre_brightness"]
+
+    df["drill_index"] = bpm_drill * subbass_score * df["pitch"] * df["flatness"]
     return df
 
 
 
 """
-    POPULARITY FEATURES
+    METADATA FEATURES
 """
-def production_modernity(merged_dataset):
-    df = merged_dataset.copy()
-
-    # Normalized year of production
-    year_norm = (df["year"] - df["year"].min()) / (df["year"].max() - df["year"].min())
-    
-    # Normalized loudness (more recent = louder)
-    loudness_norm = (df["loudness"] - df["loudness"].min()) / (df["loudness"].max() - df["loudness"].min() + eps)
-    
-    # Brightness increasing with modernity
-    brightness = df["timbre_brightness"]
-    
-    df["production_modernity"] = (year_norm + loudness_norm + brightness) / 3
-    return df
-
-def career_maturity(merged_dataset):
-    df = merged_dataset.copy()
-
-    df["career_maturity"] = df["disc_number"] / (df["disc_number"].max() + eps)
-    return df
-
 def career_longevity(merged_dataset):
     df = merged_dataset.copy()
 
     current_year = datetime.now().year
-    years_active = current_year - df["active_start_year"]
-
-    df["career_longevity"] = years_active / (years_active.max() + eps)
+    df["career_longevity"] = current_year - df["active_start_year"]
     return df
-
-def geographic_influence(merged_dataset):
-    df = merged_dataset.copy()
-
-    # Uses min latitude as the origin
-    lat_norm = (df["latitude"] - df["latitude"].min()) / \
-                  (df["latitude"].max() - df["latitude"].min() + 1e-6)
-    
-    df["geographic_north_south"] = lat_norm
-    return df
-
-"""
-def summer_hit(merged_dataset):
-    df = merged_dataset.copy()
-
-    # Save convertion to integers
-    df["month"] = pd.to_numeric(df["month"], errors="coerce").astype(int)
-
-    # Vectorialized calculus
-    conditions = [
-        df["month"].isin([6, 7, 8]),   # summer
-        df["month"].isin([4, 5])       # spring
-    ]
-    values = [1.0, 0.5]
-
-    df["summer_hit_index"] = np.select(conditions, values, default=0.0)
-    return df
-"""
 
 
 
@@ -372,7 +229,7 @@ def summer_hit(merged_dataset):
     1. all new features
     2. after non-useful columns removal
 """
-def enriched_heatmap(final_merged_dataset):
+def full_heatmap(final_merged_dataset):
     # Selecting only numeric columns
     numeric_cols = final_merged_dataset.select_dtypes(include=[np.number]).columns
 
@@ -444,50 +301,95 @@ if __name__ == "__main__":
 
     merged_dataset = merged_dataset.dropna()
     print(f"Original merged dataset shape: {merged_dataset.shape[0]} rows x {merged_dataset.shape[1]} columns")
+    print(f"Columns: {merged_dataset.columns.tolist()}")
 
     print("\n \n \n")
 
     # Original heatmaps
     #og_tracks_heatmap(tracks)
-#
+
     #og_artists_heatmap(artists)
-#
-    #og_full_heatmap(merged_dataset)
+
+    og_full_heatmap(merged_dataset)
+
+    # "loudness", "rms" = 1.00
+    merged_dataset = merged_dataset.drop(columns=["loudness"])
+
+    # "zcr" high corr w/ "rolloff"(0.97), "centroid"(0.87)
+    merged_dataset = merged_dataset.drop(columns=["zcr"])
 
     # Tracks features
-    merged_dataset = swear_density(merged_dataset)
+    merged_dataset = swear_ratio(merged_dataset)
     merged_dataset = syntactic_complexity(merged_dataset)
     merged_dataset = flow_complexity(merged_dataset)
-    merged_dataset = lyrical_density(merged_dataset)
     merged_dataset = multilingual_index(merged_dataset)
     merged_dataset = percussiveness(merged_dataset)
     merged_dataset = timbre_brightness(merged_dataset)
-    merged_dataset = energy_index(merged_dataset)
     merged_dataset = harmonic_richness(merged_dataset)
     merged_dataset = trap_index(merged_dataset)
     merged_dataset = boombap_index(merged_dataset)
     merged_dataset = cloud_rap_index(merged_dataset)
     merged_dataset = drill_index(merged_dataset)
-    merged_dataset = production_modernity(merged_dataset)
-    merged_dataset = career_maturity(merged_dataset)
-    #merged_dataset = summer_hit(merged_dataset)
-    merged_dataset = career_longevity(merged_dataset)    
-    merged_dataset = geographic_influence(merged_dataset)
+    merged_dataset = career_longevity(merged_dataset)
     
     print(f"Merged dataset shape: {merged_dataset.shape[0]} rows x {merged_dataset.shape[1]} columns")
     print(f"Columns: {merged_dataset.columns.tolist()}")
     
-    # Enriched dataset heatmaps
-    enriched_heatmap(merged_dataset)
+    # Enriched dataset
+    #full_heatmap(merged_dataset)
 
-    # Dropping columns with high correlation
+    # Removing redundant columns
     merged_dataset = merged_dataset.drop(columns=[
-            "zcr",
-            "rolloff",
-            "",
-            "",
-            "",
-        ])
+        "id_artist",
+        "explicit",
+        "language",
+        "swear_IT",
+        "swear_EN",
+        "n_sentences",
+        "n_tokens",
+        "tokens_per_sent",
+        "char_per_tok",
+        "lexical_density",
+        #"avg_token_per_clause",
+        "bpm",
+        "centroid",
+        "rolloff",
+        "flux",
+        "rms",
+        "flatness",
+        "spectral_complexity",
+        "pitch",
+        "disc_number",
+        "track_number",
+        #"duration_ms",
+        #"popularity",
+        #"album_release_year",
+        #"latitude",
+        "longitude",
+        "active_start_year",
+        #"swear_ratio",
+        #"syntactic_complexity",
+        #"flow_complexity",
+        #"multilingual_index",
+        #"percussiveness",
+        "timbre_brightness",
+        #"harmonic_richness",
+        #"trap_index",
+        #"boombap_index",
+        #"cloud_rap_index",
+        #"drill_index",
+        #"career_longevity"
+    ])
 
-    enriched_heatmap(merged_dataset)
+    # Final dataset characterization
+    print("\n \n \n")
+    print(f"Final merged dataset shape: {merged_dataset.shape[0]} rows x {merged_dataset.shape[1]} columns")
+    print(f"Columns: {merged_dataset.columns.tolist()}")
+
+    # Final dataset heatmaps
+    full_heatmap(merged_dataset)
+
+    merged_dataset.to_csv('../clustering_dataset/merged_dataset.csv', index=False)
+
+    
     
