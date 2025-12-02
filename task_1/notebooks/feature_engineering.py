@@ -103,14 +103,6 @@ def flow_complexity(merged_dataset):
     df["flow_complexity"] = df["tokens_per_sent"] * df["flux"]
     return df
 
-def multilingual_index(merged_dataset):
-    df = merged_dataset.copy()
-    
-    df["multilingual_index"] = 0
-
-    df.loc[merged_dataset["language"] != "it", "multilingual_index"] = 1
-    return df
-
 
 
 """
@@ -222,6 +214,13 @@ def career_longevity(merged_dataset):
     df["career_longevity"] = current_year - df["active_start_year"]
     return df
 
+def years_since_release(merged_dataset):
+    df = merged_dataset.copy()
+
+    current_year = datetime.now().year
+    df["years_since_release"] = current_year - df["album_release_year"]
+    return df
+
 
 
 """
@@ -236,9 +235,6 @@ def full_heatmap(final_merged_dataset):
     # Removing booleans
     if "explicit" in numeric_cols:
         numeric_cols = numeric_cols.drop("explicit")
-
-    if "multilingual_index" in numeric_cols:
-        numeric_cols = numeric_cols.drop("multilingual_index")
 
     final_for_corr = final_merged_dataset[numeric_cols]
     
@@ -271,8 +267,8 @@ def full_heatmap(final_merged_dataset):
 
 if __name__ == "__main__":
     # Opening files
-    tracks = pd.read_csv("../prepared_datasets/tracks.csv")
-    artists = pd.read_csv("../prepared_datasets/artists.csv")
+    tracks = pd.read_csv("../../prepared_datasets/tracks.csv")
+    artists = pd.read_csv("../../prepared_datasets/artists.csv")
 
     tracks = tracks.copy()
     artists = artists.copy()
@@ -322,7 +318,6 @@ if __name__ == "__main__":
     merged_dataset = swear_ratio(merged_dataset)
     merged_dataset = syntactic_complexity(merged_dataset)
     merged_dataset = flow_complexity(merged_dataset)
-    merged_dataset = multilingual_index(merged_dataset)
     merged_dataset = percussiveness(merged_dataset)
     merged_dataset = timbre_brightness(merged_dataset)
     merged_dataset = harmonic_richness(merged_dataset)
@@ -331,10 +326,11 @@ if __name__ == "__main__":
     merged_dataset = cloud_rap_index(merged_dataset)
     merged_dataset = drill_index(merged_dataset)
     merged_dataset = career_longevity(merged_dataset)
+    merged_dataset = years_since_release(merged_dataset)
     
     print(f"Merged dataset shape: {merged_dataset.shape[0]} rows x {merged_dataset.shape[1]} columns")
     print(f"Columns: {merged_dataset.columns.tolist()}")
-    
+
     # Enriched dataset
     #full_heatmap(merged_dataset)
 
@@ -363,14 +359,13 @@ if __name__ == "__main__":
         "track_number",
         #"duration_ms",
         #"popularity",
-        #"album_release_year",
-        #"latitude",
+        "album_release_year",
+        "latitude",
         "longitude",
         "active_start_year",
         #"swear_ratio",
         #"syntactic_complexity",
         #"flow_complexity",
-        #"multilingual_index",
         #"percussiveness",
         "timbre_brightness",
         #"harmonic_richness",
@@ -378,7 +373,8 @@ if __name__ == "__main__":
         #"boombap_index",
         #"cloud_rap_index",
         #"drill_index",
-        #"career_longevity"
+        #"career_longevity",
+        #"years_since_release"
     ])
 
     # Final dataset characterization
@@ -389,7 +385,7 @@ if __name__ == "__main__":
     # Final dataset heatmaps
     full_heatmap(merged_dataset)
 
-    merged_dataset.to_csv('../clustering_dataset/merged_dataset.csv', index=False)
+    merged_dataset.to_csv('../../clustering_dataset/merged_dataset.csv', index=False)
 
     
     
