@@ -9,3 +9,6 @@ umap-learn==0.5.4
 kneed==0.8.5
 librosa==0.11.0
 tslearn==0.6.3
+tensorflow==2.20.0
+stumpy==1.13.0
+pyts==0.13.0
