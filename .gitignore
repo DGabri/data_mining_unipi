@@ -216,5 +216,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-.DS_Storetimeseries_datasets/tracks_timeseries.csv
+.DS_Store
+
+timeseries_datasets/tracks_timeseries.csv
 timeseries_datasets/tracks_timeseries.csv
