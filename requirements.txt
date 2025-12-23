@@ -14,3 +14,5 @@ stumpy==1.13.0
 pyts==0.13.0
 shap==0.42.1
 lime==0.2.0.1
+s_dbw==0.4.0
+pyclustering==0.10.1.2
